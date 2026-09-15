@@ -27,3 +27,16 @@ def generate_discrete_log_challenge(rounds: int = 20) -> tuple[int, int, int, in
     x = random.randint(1, p - 1)
     y = fast_pow_mod(a, x, p)
     return a, y, p, x
+
+
+def generate_diffie_hellman_challenge(
+    rounds: int = 20,
+) -> tuple[int, int, int, int, int]:
+    """Генерирует (p, g, x_a, x_b, key) для схемы Диффи-Хеллмана."""
+    # p >= 5, иначе диапазон [2, p - 2] для секретных ключей пуст
+    p = generate_prime(low=5, rounds=rounds)
+    g = random.randint(2, p - 1)
+    x_a = random.randint(2, p - 2)
+    x_b = random.randint(2, p - 2)
+    key = fast_pow_mod(g, x_a * x_b, p)
+    return p, g, x_a, x_b, key

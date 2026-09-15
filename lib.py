@@ -1,5 +1,5 @@
 import random
-from math import isqrt
+from math import gcd, isqrt
 
 
 def fast_pow_mod(a: int, x: int, p: int) -> int:
@@ -53,8 +53,8 @@ def extended_euclid(a: int, b: int) -> tuple[int, int, int]:
 def discrete_log(a: int, y: int, p: int) -> int | None:
     """Нахождение дискретного логарифма a^x % p = y."""
     if p <= 1:
-        print("p must be > 1")
-        return None
+        raise ValueError("p must be > 1")
+
     a %= p
     y %= p
 
@@ -62,11 +62,15 @@ def discrete_log(a: int, y: int, p: int) -> int | None:
     if y == 1:
         return 0
 
+    # Алгоритм корректен только для обратимого a (иначе нет структуры группы)
+    if gcd(a, p) != 1:
+        raise ValueError(f"a и p должны быть взаимно просты (НОД = {gcd(a, p)})")
+
     m = isqrt(p) + 1
     k = (p + m - 1) // m
 
     # Шаг младенца: (y * a^j) % p
-    baby_steps = {}
+    baby_steps: dict[int, int] = {}
     value = y  # j = 0: y * a^0
     for j in range(m):
         if value not in baby_steps:
@@ -78,9 +82,50 @@ def discrete_log(a: int, y: int, p: int) -> int | None:
     value = power                   # i = 1
     for i in range(1, k + 1):
         if value in baby_steps:
-            return i * m - baby_steps[value]
+            x = i * m - baby_steps[value]
+            if fast_pow_mod(a, x, p) == y:  # страховка от ложного совпадения
+                return x
         value = (value * power) % p  # a^((i+1)*m)
 
     return None
+
+
+
+def diffie_hellman_get_public_key(p: int, g: int, x: int) -> int:
+    """Получение личного публичного ключа абонента на основе его личного секретного ключа"""
+    return fast_pow_mod(g, x, p)
+
+
+def diffie_hellman_get_shared_secret(p: int, x: int, y_other: int) -> int:
+    """Получение общего секретного ключа на основе личного секретного и публичного другого пользователя"""
+    return fast_pow_mod(y_other, x, p)
+
+
+def diffie_hellman(p: int, g: int, x_a: int, x_b: int) -> tuple[int, int, int]:
+    """Построение общего ключа по схеме Диффи-Хеллмана.
+
+    p, g - публичные параметры шифрования
+    x_a, x_b - секретные ключи абонентов
+    y_a, y_b - публичные ключи абонентов
+    k_a = k_b - общий секретный ключ шифрования
+    """
+
+    if p <= 2:
+        raise ValueError("p должно быть больше 2")
+    if not 1 < g < p:
+        raise ValueError("g должно удовлетворять 1 < g < p")
+    if x_a < 1 or x_b < 1:
+        raise ValueError("секретные ключи должны быть >= 1")
+
+    y_a = fast_pow_mod(g, x_a, p)
+    y_b = fast_pow_mod(g, x_b, p)
+
+    key_a = fast_pow_mod(y_b, x_a, p)
+    key_b = fast_pow_mod(y_a, x_b, p)
+
+
+    if key_a != key_b:  # не должно достигаться при корректных параметрах
+        raise ArithmeticError("общие ключи абонентов не совпали")
+    return y_a, y_b, key_a
 
 
