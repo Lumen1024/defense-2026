@@ -2,8 +2,6 @@ import random
 
 from gen import (
     MAGNITUDE,
-    generate_diffie_hellman_challenge,
-    generate_discrete_log_challenge,
     generate_pair,
     generate_prime,
     generate_prime_pair,
@@ -16,11 +14,11 @@ from lib import (
     fast_pow_mod,
     is_prime_fermat,
 )
-from ui import read_choice, read_int, read_mode
+from ui import clear_screen, read_choice, read_int
 
 
 def menu() -> int:
-    print("\n\n")
+    clear_screen()
     print("1. Быстрое возведение в степень по модулю")
     print("2. Тест простоты Ферма")
     print("3. Обобщённый алгоритм Евклида")
@@ -32,26 +30,46 @@ def menu() -> int:
 
 def _demo_fast_pow() -> None:
     print("> y = a^x mod p")
-    if read_mode():
-        a, p = generate_pair()
-        x = random.randint(2, MAGNITUDE)
-        print(f"a = {a}\nx = {x}\np = {p}")
-    else:
-        a = read_int("a = ")
-        x = read_int("x = ")
-        p = read_int("p = ")
+    a = read_int(
+        "a = ",
+        True,
+        lambda: random.randint(2, MAGNITUDE),
+        validate=lambda v: v >= 0,
+        error="a должно быть неотрицательным",
+    )
+    x = read_int(
+        "x = ",
+        True,
+        lambda: random.randint(2, MAGNITUDE),
+        validate=lambda v: v >= 0,
+        error="x должно быть неотрицательным",
+    )
+    p = read_int(
+        "p = ",
+        True,
+        lambda: generate_prime(rounds=20),
+        validate=lambda v: v > 1,
+        error="p должно быть больше 1",
+    )
     y = fast_pow_mod(a, x, p)
-    print(f"y = {a}^{x} % {p} = {y}")
+    print(f"y = {a}^{x} mod {p} = {y}")
     input()
 
 
 def _demo_ferma() -> None:
-    n = generate_prime() if read_mode() else read_int("n = ")
+    n = read_int(
+        "n = ",
+        True,
+        generate_prime,
+        validate=lambda v: v >= 1,
+        error="n должно быть натуральным числом",
+    )
     print(f"> Число {n} вероятно простое: {is_prime_fermat(n)}")
     input()
 
 
 def _demo_gcd() -> None:
+    print("Обобщённый алгоритм Евклида: a*x + b*y = НОД(a, b)")
     print("1. Ввод a, b с клавиатуры")
     print("2. Генерация a, b внутри функции")
     print("3. Генерация a, b простыми (тест Ферма)")
@@ -74,13 +92,27 @@ def _demo_gcd() -> None:
 
 def _demo_discrete_log() -> None:
     print("> y = a^x mod p — нахождение дискретного логарифма")
-    if read_mode():
-        a, y, p, _ = generate_discrete_log_challenge()
-        print(f"Сгенерировано:\na = {a}\ny = {y}\np = {p}")
-    else:
-        a = read_int("a = ")
-        y = read_int("y = ")
-        p = read_int("p = ")
+    p = read_int(
+        "p = ",
+        True,
+        lambda: generate_prime(low=3, rounds=20),
+        validate=lambda v: v >= 3 and is_prime_fermat(v),
+        error="p должно быть простым числом, p >= 3",
+    )
+    a = read_int(
+        "a = ",
+        True,
+        lambda: random.randint(2, p - 1),
+        validate=lambda v: 1 < v < p,
+        error=f"нужно 1 < a < {p}",
+    )
+    y = read_int(
+        "y = ",
+        True,
+        lambda: fast_pow_mod(a, random.randint(1, p - 1), p),
+        validate=lambda v: 1 <= v < p,
+        error=f"нужно 1 <= y < {p}",
+    )
     try:
         x = discrete_log(a, y, p)
     except ValueError as exc:
@@ -92,7 +124,7 @@ def _demo_discrete_log() -> None:
     else:
         check = fast_pow_mod(a, x, p)
         print(f"x = {x}")
-        print(f"Проверка: {a}^{x} % {p} = {check} (y = {y})")
+        print(f"Проверка: {a}^{x} mod {p} = {check} (y = {y})")
         print("Решение верно." if check == y else "Решение НЕВЕРНО.")
     input()
 
@@ -100,18 +132,41 @@ def _demo_discrete_log() -> None:
 def _demo_diffie_hellman() -> None:
     print("Схема Диффи-Хеллмана: K = g^(x_a*x_b) mod p")
 
-    expected_key: int | None = None
-    if read_mode():
-        p, g, x_a, x_b, expected_key = generate_diffie_hellman_challenge()
-        print(f"Сгенерировано:\np = {p}\ng = {g}\nx_a = {x_a}\nx_b = {x_b}")
-    else:
-        p = read_int("p = ")
-        g = read_int("g = ")
-        x_a = read_int("x_a = ")
-        x_b = read_int("x_b = ")
+    print("Публичные параметры шифрования:")
+    p = read_int(
+        "p = ",
+        True,
+        lambda: generate_prime(low=5, rounds=20),
+        validate=lambda v: v >= 5 and is_prime_fermat(v),
+        error="p должно быть простым числом, p >= 5",
+    )
+    g = read_int(
+        "g = ",
+        True,
+        lambda: random.randint(2, p - 1),
+        validate=lambda v: 1 < v < p,
+        error=f"нужно 1 < g < {p}",
+    )
 
-    if not is_prime_fermat(p):
-        print("Предупреждение: p не прошло тест простоты Ферма.")
+    print("Личные секретные ключи абонентов:")
+
+    def valid_x(value: int) -> bool:
+        return 1 <= value <= p - 2
+
+    x_a = read_int(
+        "x_a = ",
+        True,
+        lambda: random.randint(2, p - 2),
+        validate=valid_x,
+        error=f"нужно 1 <= x_a <= {p - 2}",
+    )
+    x_b = read_int(
+        "x_b = ",
+        True,
+        lambda: random.randint(2, p - 2),
+        validate=valid_x,
+        error=f"нужно 1 <= x_b <= {p - 2}",
+    )
 
     try:
         y_a, y_b, k_a = diffie_hellman(p, g, x_a, x_b)
@@ -126,9 +181,6 @@ def _demo_diffie_hellman() -> None:
     print("Вычисление общего секретного ключа:")
     print(f"> K_a = {k_a}\n> K_b = {k_b}")
     print("Ключи абонентов совпадают." if k_a == k_b else "Ключи абонентов НЕ совпадают.")
-    if expected_key is not None:
-        verdict = "совпадает" if k_a == expected_key else "НЕ совпадает"
-        print(f"Сверка с эталоном K = {expected_key}: {verdict}.")
     input()
 
 
@@ -149,3 +201,4 @@ if __name__ == "__main__":
             break
         else:
             print("Неверный пункт меню.")
+            input()
