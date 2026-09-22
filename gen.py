@@ -1,6 +1,6 @@
 import random
 
-from lib import fast_pow_mod, is_prime_fermat
+from lib import fast_pow_mod, is_prime_fermat, primitive_root
 
 MAGNITUDE = 10 ** 9
 
@@ -20,6 +20,14 @@ def generate_prime_pair(low: int = 2, high: int = MAGNITUDE, rounds: int = 20) -
     return generate_prime(low, high, rounds), generate_prime(low, high, rounds)
 
 
+def generate_primitive_root(p: int) -> int:
+    """Первообразный корень по модулю простого p (иначе — случайное g)."""
+    g = primitive_root(p)
+    if g is None:
+        return random.randint(2, p - 1)
+    return g
+
+
 def generate_discrete_log_challenge(rounds: int = 20) -> tuple[int, int, int, int]:
     """Генерирует (a, y, p, x), где y = a^x mod p, а x — «секретный» ответ."""
     p = generate_prime(rounds=rounds)
@@ -35,7 +43,7 @@ def generate_diffie_hellman_challenge(
     """Генерирует (p, g, x_a, x_b, key) для схемы Диффи-Хеллмана."""
     # p >= 5, иначе диапазон [2, p - 2] для секретных ключей пуст
     p = generate_prime(low=5, rounds=rounds)
-    g = random.randint(2, p - 1)
+    g = generate_primitive_root(p)
     x_a = random.randint(2, p - 2)
     x_b = random.randint(2, p - 2)
     key = fast_pow_mod(g, x_a * x_b, p)

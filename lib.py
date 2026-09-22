@@ -91,6 +91,30 @@ def discrete_log(a: int, y: int, p: int) -> int | None:
 
 
 
+def primitive_root(p: int) -> int | None:
+    if p < 2:
+        raise ValueError("p must be >= 2")
+    if p == 2:
+        return 1
+
+    factors: set[int] = set()
+    n = p - 1
+    d = 2
+    while d * d <= n:
+        if n % d == 0:
+            factors.add(d)
+            while n % d == 0:
+                n //= d
+        d += 1
+    if n > 1:
+        factors.add(n)
+
+    for g in range(2, p):
+        if all(fast_pow_mod(g, (p - 1) // f, p) != 1 for f in factors):
+            return g
+    return None
+
+
 def diffie_hellman_get_public_key(p: int, g: int, x: int) -> int:
     """Получение личного публичного ключа абонента на основе его личного секретного ключа"""
     return fast_pow_mod(g, x, p)

@@ -5,6 +5,7 @@ from gen import (
     generate_pair,
     generate_prime,
     generate_prime_pair,
+    generate_primitive_root,
 )
 from lib import (
     diffie_hellman,
@@ -143,7 +144,7 @@ def _demo_diffie_hellman() -> None:
     g = read_int(
         "g = ",
         True,
-        lambda: random.randint(2, p - 1),
+        lambda: generate_primitive_root(p),
         validate=lambda v: 1 < v < p,
         error=f"нужно 1 < g < {p}",
     )
