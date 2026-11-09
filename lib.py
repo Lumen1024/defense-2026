@@ -216,3 +216,31 @@ def get_signature(payload: dict[str, Any]) -> list[Any]:
         raise ValueError("в файле подписи отсутствует список значений")
     return signature
 
+
+def save_signature(
+    path: str,
+    algorithm: str,
+    public_key: dict[str, Any],
+    signature: list[Any],
+) -> None:
+    """Сохраняет подпись с единым заголовком для всех лабораторных."""
+    write_signature(
+        path,
+        {
+            "version": 1,
+            "algorithm": algorithm,
+            "hash": DEFAULT_HASH,
+            "public_key": public_key,
+            "signature": signature,
+        },
+    )
+
+
+def load_signature(
+    path: str, algorithm: str
+) -> tuple[dict[str, Any], list[Any]]:
+    """Читает файл подписи и возвращает открытый ключ и значения подписи."""
+    payload = read_signature(path)
+    return get_public_key(payload, algorithm), get_signature(payload)
+
+

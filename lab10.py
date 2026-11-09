@@ -1,24 +1,23 @@
 import random
 from typing import NamedTuple
 
-from gen import MAGNITUDE, generate_prime, generate_primitive_root
+from gen import (
+    generate_primitive_root,
+    generate_safe_prime,
+)
 from lib import (
-    DEFAULT_HASH,
     HASH_TITLE,
     default_signature_path,
     fast_pow_mod,
-    get_public_key,
-    get_signature,
     hash_file,
     inverse,
-    is_prime_fermat,
-    read_signature,
-    write_signature,
+    load_signature,
+    save_signature,
 )
 from ui import read_int, read_path
 
 ALGORITHM = "GOST R 34.10-94"
-SOURCE = "some.txt"
+SOURCE = "files/some.txt"
 
 
 class GostKeys(NamedTuple):
@@ -27,15 +26,6 @@ class GostKeys(NamedTuple):
     a: int
     x: int
     y: int
-
-
-def generate_safe_prime() -> tuple[int, int]:
-    """Генерирует p = 2q + 1, где q — простое (безопасное простое p)."""
-    while True:
-        q = generate_prime(low=10**6, high=MAGNITUDE // 2)
-        p = 2 * q + 1
-        if is_prime_fermat(p):
-            return p, q
 
 
 def generate_keys() -> GostKeys:
@@ -124,15 +114,13 @@ def sign_file(keys: GostKeys) -> None:
 
     signature = [sign_byte(byte, keys) for byte in digest]
     dst = read_path("Файл подписи", default_signature_path(src))
-    payload = {
-        "version": 1,
-        "algorithm": ALGORITHM,
-        "hash": DEFAULT_HASH,
-        "public_key": {"p": keys.p, "q": keys.q, "a": keys.a, "y": keys.y},
-        "signature": signature,
-    }
     try:
-        write_signature(dst, payload)
+        save_signature(
+            dst,
+            ALGORITHM,
+            {"p": keys.p, "q": keys.q, "a": keys.a, "y": keys.y},
+            signature,
+        )
     except OSError as exc:
         print(f"Ошибка: не удалось записать {dst}: {exc}")
         return
@@ -147,9 +135,7 @@ def verify_file(keys: GostKeys | None) -> None:
     sig_path = read_path("Файл подписи", default_signature_path(src))
 
     try:
-        payload = read_signature(sig_path)
-        public = get_public_key(payload, ALGORITHM)
-        signature = get_signature(payload)
+        public, signature = load_signature(sig_path, ALGORITHM)
     except (OSError, ValueError) as exc:
         print(f"Ошибка: не удалось прочитать подпись {sig_path}: {exc}")
         return

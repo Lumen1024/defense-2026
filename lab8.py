@@ -4,21 +4,18 @@ from typing import NamedTuple
 
 from gen import MAGNITUDE, generate_prime
 from lib import (
-    DEFAULT_HASH,
     HASH_TITLE,
     default_signature_path,
     fast_pow_mod,
-    get_public_key,
-    get_signature,
     hash_file,
     inverse,
-    read_signature,
-    write_signature,
+    load_signature,
+    save_signature,
 )
 from ui import read_int, read_path
 
 ALGORITHM = "RSA"
-SOURCE = "some.txt"
+SOURCE = "files/some.txt"
 
 
 class RsaKeys(NamedTuple):
@@ -86,15 +83,13 @@ def sign_file(keys: RsaKeys) -> None:
 
     signature = [fast_pow_mod(byte, keys.d, keys.n) for byte in digest]
     dst = read_path("Файл подписи", default_signature_path(src))
-    payload = {
-        "version": 1,
-        "algorithm": ALGORITHM,
-        "hash": DEFAULT_HASH,
-        "public_key": {"n": keys.n, "e": keys.e},
-        "signature": signature,
-    }
     try:
-        write_signature(dst, payload)
+        save_signature(
+            dst,
+            ALGORITHM,
+            {"n": keys.n, "e": keys.e},
+            signature,
+        )
     except OSError as exc:
         print(f"Ошибка: не удалось записать {dst}: {exc}")
         return
@@ -109,9 +104,7 @@ def verify_file(keys: RsaKeys | None) -> None:
     sig_path = read_path("Файл подписи", default_signature_path(src))
 
     try:
-        payload = read_signature(sig_path)
-        public = get_public_key(payload, ALGORITHM)
-        signature = get_signature(payload)
+        public, signature = load_signature(sig_path, ALGORITHM)
     except (OSError, ValueError) as exc:
         print(f"Ошибка: не удалось прочитать подпись {sig_path}: {exc}")
         return

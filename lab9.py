@@ -4,21 +4,18 @@ from typing import NamedTuple
 
 from gen import MAGNITUDE, generate_prime, generate_primitive_root
 from lib import (
-    DEFAULT_HASH,
     HASH_TITLE,
     default_signature_path,
     fast_pow_mod,
-    get_public_key,
-    get_signature,
     hash_file,
     inverse,
-    read_signature,
-    write_signature,
+    load_signature,
+    save_signature,
 )
 from ui import read_int, read_path
 
 ALGORITHM = "ElGamal"
-SOURCE = "some.txt"
+SOURCE = "files/some.txt"
 
 
 class ElGamalKeys(NamedTuple):
@@ -101,15 +98,13 @@ def sign_file(keys: ElGamalKeys) -> None:
 
     signature = [sign_byte(byte, keys) for byte in digest]
     dst = read_path("Файл подписи", default_signature_path(src))
-    payload = {
-        "version": 1,
-        "algorithm": ALGORITHM,
-        "hash": DEFAULT_HASH,
-        "public_key": {"p": keys.p, "g": keys.g, "y": keys.y},
-        "signature": signature,
-    }
     try:
-        write_signature(dst, payload)
+        save_signature(
+            dst,
+            ALGORITHM,
+            {"p": keys.p, "g": keys.g, "y": keys.y},
+            signature,
+        )
     except OSError as exc:
         print(f"Ошибка: не удалось записать {dst}: {exc}")
         return
@@ -124,9 +119,7 @@ def verify_file(keys: ElGamalKeys | None) -> None:
     sig_path = read_path("Файл подписи", default_signature_path(src))
 
     try:
-        payload = read_signature(sig_path)
-        public = get_public_key(payload, ALGORITHM)
-        signature = get_signature(payload)
+        public, signature = load_signature(sig_path, ALGORITHM)
     except (OSError, ValueError) as exc:
         print(f"Ошибка: не удалось прочитать подпись {sig_path}: {exc}")
         return
