@@ -101,4 +101,15 @@ def read_choice(prompt: str, valid: tuple[str, ...]) -> str:
 
 def read_mode() -> bool:
     """True — «генерировать», False — «ввод с клавиатуры»."""
-    return read_choice("Ввод с клавиатуры (1) или генерация (2)? [1/2]: ", ("1", "2")) == "2"
+    prompt = "Ввод с клавиатуры (1) или генерация (2)? [1/2]: "
+    return read_choice(prompt, ("1", "2")) == "2"
+
+
+def read_path(prompt: str, default: str) -> str:
+    """Читает путь к файлу; пустой ввод оставляет значение по умолчанию."""
+    try:
+        raw = input(f"{prompt} [{default}]: ").strip()
+    except EOFError:
+        print("\nВвод завершён.")
+        raise SystemExit(0) from None
+    return raw or default

@@ -181,25 +181,28 @@ def _demo_diffie_hellman() -> None:
     print(f"> y_a = {y_a}\n> y_b = {y_b}")
     print("Вычисление общего секретного ключа:")
     print(f"> K_a = {k_a}\n> K_b = {k_b}")
-    print("Ключи абонентов совпадают." if k_a == k_b else "Ключи абонентов НЕ совпадают.")
+    if k_a == k_b:
+        print("Ключи абонентов совпадают.")
+    else:
+        print("Ключи абонентов НЕ совпадают.")
     input()
 
 
 if __name__ == "__main__":
     while True:
-        choice = menu()
-        if choice == 1:
-            _demo_fast_pow()
-        elif choice == 2:
-            _demo_ferma()
-        elif choice == 3:
-            _demo_gcd()
-        elif choice == 4:
-            _demo_discrete_log()
-        elif choice == 5:
-            _demo_diffie_hellman()
-        elif choice == 0:
-            break
-        else:
-            print("Неверный пункт меню.")
-            input()
+        match menu():
+            case 1:
+                _demo_fast_pow()
+            case 2:
+                _demo_ferma()
+            case 3:
+                _demo_gcd()
+            case 4:
+                _demo_discrete_log()
+            case 5:
+                _demo_diffie_hellman()
+            case 0:
+                break
+            case _:
+                print("Неверный пункт меню.")
+                input()

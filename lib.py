@@ -1,11 +1,17 @@
+import hashlib
+import json
 import random
 from math import gcd, isqrt
+from typing import Any
+
+DEFAULT_HASH = "sha256"
+HASH_TITLE = "SHA-256"
 
 
 def fast_pow_mod(a: int, x: int, p: int) -> int:
     """Быстрое возведение в степень по модулю: a^x mod p."""
     if p <= 0:
-        raise ValueError("p must be positive")
+        raise ValueError("p должно быть положительным")
 
     result = 1
     a %= p
@@ -48,12 +54,18 @@ def extended_euclid(a: int, b: int) -> tuple[int, int, int]:
     return old_r, old_s, old_t
 
 
+def inverse(a: int, m: int) -> int | None:
+    """Обратный элемент a^(-1) mod m или None, если его не существует."""
+    if m <= 0:
+        raise ValueError("m должно быть положительным")
+    g, x, _ = extended_euclid(a % m, m)
+    return x % m if g == 1 else None
 
 
 def discrete_log(a: int, y: int, p: int) -> int | None:
     """Нахождение дискретного логарифма a^x % p = y."""
     if p <= 1:
-        raise ValueError("p must be > 1")
+        raise ValueError("p должно быть больше 1")
 
     a %= p
     y %= p
@@ -79,7 +91,7 @@ def discrete_log(a: int, y: int, p: int) -> int | None:
 
     # Шаг великана: a^(i*m) % p
     power = fast_pow_mod(a, m, p)  # a^m
-    value = power                   # i = 1
+    value = power  # i = 1
     for i in range(1, k + 1):
         if value in baby_steps:
             x = i * m - baby_steps[value]
@@ -90,10 +102,10 @@ def discrete_log(a: int, y: int, p: int) -> int | None:
     return None
 
 
-
 def primitive_root(p: int) -> int | None:
+    """Наименьший первообразный корень по модулю p."""
     if p < 2:
-        raise ValueError("p must be >= 2")
+        raise ValueError("p должно быть >= 2")
     if p == 2:
         return 1
 
@@ -116,12 +128,12 @@ def primitive_root(p: int) -> int | None:
 
 
 def diffie_hellman_get_public_key(p: int, g: int, x: int) -> int:
-    """Получение личного публичного ключа абонента на основе его личного секретного ключа"""
+    """Публичный ключ абонента по его секретному ключу: g^x mod p."""
     return fast_pow_mod(g, x, p)
 
 
 def diffie_hellman_get_shared_secret(p: int, x: int, y_other: int) -> int:
-    """Получение общего секретного ключа на основе личного секретного и публичного другого пользователя"""
+    """Общий секрет по своему секретному и чужому открытому ключу."""
     return fast_pow_mod(y_other, x, p)
 
 
@@ -147,9 +159,88 @@ def diffie_hellman(p: int, g: int, x_a: int, x_b: int) -> tuple[int, int, int]:
     key_a = fast_pow_mod(y_b, x_a, p)
     key_b = fast_pow_mod(y_a, x_b, p)
 
-
     if key_a != key_b:  # не должно достигаться при корректных параметрах
         raise ArithmeticError("общие ключи абонентов не совпали")
     return y_a, y_b, key_a
+
+
+# --- Хеширование и файлы электронных подписей ---
+
+
+def hash_file(path: str, algorithm: str = DEFAULT_HASH) -> bytes:
+    """Вычисляет хеш файла, читая его по частям (файл может быть большим)."""
+    digest = hashlib.new(algorithm)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.digest()
+
+
+def default_signature_path(src: str) -> str:
+    """Путь к отдельному файлу подписи: <исходный файл>.sig."""
+    return src + ".sig"
+
+
+def write_signature(path: str, payload: dict[str, Any]) -> None:
+    """Сохраняет подпись в отдельный JSON-файл."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def read_signature(path: str) -> dict[str, Any]:
+    """Загружает JSON-файл подписи."""
+    with open(path, encoding="utf-8") as f:
+        payload = json.load(f)
+    if not isinstance(payload, dict):
+        raise ValueError("файл подписи должен содержать JSON-объект")
+    return payload
+
+
+def get_public_key(payload: dict[str, Any], algorithm: str) -> dict[str, Any]:
+    """Проверяет заголовок подписи и возвращает открытый ключ."""
+    if payload.get("algorithm") != algorithm:
+        raise ValueError(f"ожидалась подпись {algorithm}")
+    if payload.get("hash") != DEFAULT_HASH:
+        raise ValueError(f"ожидалась хеш-функция {HASH_TITLE}")
+    public_key = payload.get("public_key")
+    if not isinstance(public_key, dict):
+        raise ValueError("в файле подписи отсутствует открытый ключ")
+    return public_key
+
+
+def get_signature(payload: dict[str, Any]) -> list[Any]:
+    """Возвращает список значений подписи из файла."""
+    signature = payload.get("signature")
+    if not isinstance(signature, list):
+        raise ValueError("в файле подписи отсутствует список значений")
+    return signature
+
+
+def save_signature(
+    path: str,
+    algorithm: str,
+    public_key: dict[str, Any],
+    signature: list[Any],
+) -> None:
+    """Сохраняет подпись с единым заголовком для всех лабораторных."""
+    write_signature(
+        path,
+        {
+            "version": 1,
+            "algorithm": algorithm,
+            "hash": DEFAULT_HASH,
+            "public_key": public_key,
+            "signature": signature,
+        },
+    )
+
+
+def load_signature(
+    path: str, algorithm: str
+) -> tuple[dict[str, Any], list[Any]]:
+    """Читает файл подписи и возвращает открытый ключ и значения подписи."""
+    payload = read_signature(path)
+    return get_public_key(payload, algorithm), get_signature(payload)
 
 
